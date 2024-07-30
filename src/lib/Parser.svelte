@@ -56,8 +56,6 @@
     console.log('parsing code');
     tree = parser.parse(code);
     parsedTree = formatTree(tree.rootNode.toString());
-    console.log(parsedTree);
-    parsedTree = formatTree(tree.rootNode.toString());
   }
 
   onMount(async () => {
@@ -69,6 +67,48 @@
   $: if (parser) {
     parseCode(code);
   }
+
+  function handleKeyPress(event) {
+  const textarea = event.target;
+  const { selectionStart, selectionEnd, value } = textarea;
+
+  if (event.key === 'Enter') {
+    const beforeCursor = value.substring(0, selectionStart);
+    const afterCursor = value.substring(selectionEnd);
+    const lastChar = beforeCursor[beforeCursor.length - 1];
+
+    // Calculate the current indentation level
+    const lines = beforeCursor.split('\n');
+    let currentIndentLevel = 0;
+    for (let line of lines) {
+      currentIndentLevel += (line.match(/{/g) || []).length;
+      currentIndentLevel -= (line.match(/}/g) || []).length;
+    }
+
+    // Get the current line's indentation
+    const currentLine = lines[lines.length - 1];
+    const currentIndent = currentLine.match(/^\s*/)[0];
+
+    // Generate the new indentation string
+    const indent = '  ';
+    let newIndent = '\n' + currentIndent;
+
+    if (lastChar === '{' || lastChar === ':') {
+      newIndent += indent;
+    }
+
+    // Prevent default enter behavior and insert the new line with the correct indentation
+    event.preventDefault();
+    const newValue = beforeCursor + newIndent + afterCursor;
+    textarea.value = newValue;
+    textarea.setSelectionRange(selectionStart + newIndent.length, selectionStart + newIndent.length);
+
+    // Update the bound code variable
+    code = newValue;
+  }
+}
+
+
 </script>
 
 <style>
@@ -100,6 +140,7 @@
     white-space: pre-wrap;
     word-wrap: break-word;
     overflow: auto;
+    text-align: left;
   }
   h1, h2 {
     text-align: center;
@@ -111,11 +152,11 @@
   <div class="container">
     <div class="column">
       <h2>Input Code</h2>
-      <textarea bind:value={code}></textarea>
+      <textarea bind:value={code} on:keydown={handleKeyPress}></textarea>
     </div>
     <div class="column">
       <h2>Parsed Syntax Tree</h2>
-      <pre style="text-align: left;">{parsedTree}</pre>
+      <pre>{parsedTree}</pre>
     </div>
   </div>
 </main>
