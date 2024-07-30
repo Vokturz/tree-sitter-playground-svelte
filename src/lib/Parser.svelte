@@ -1,13 +1,15 @@
-<script>
+<script lang="ts">
   import { onMount } from 'svelte';
 
   let parser;
-  let code = `function example() { console.log("Hello, Tree-sitter!"); }`;
+  let code = `function example() {
+    console.log("Hello, Tree-sitter!");
+}`;
   let tree;
   let parsedTree = '';
 
 
-  function formatTree(treeString) {
+  function formatTree(treeString: string) {
     const indent = '  ';
     let formatted = '';
     let level = 0;
@@ -52,10 +54,11 @@
     parser.setLanguage(JavaScript);
   }
 
-  async function parseCode(code) {
-    console.log('parsing code');
+  async function parseCode(code: string) {
     tree = parser.parse(code);
     parsedTree = formatTree(tree.rootNode.toString());
+
+    console.log(tree.rootNode)
   }
 
   onMount(async () => {
@@ -148,7 +151,7 @@
 </style>
 
 <main>
-  <h1>Tree-sitter in Svelte</h1>
+  <h1>Tree-sitter</h1>
   <div class="container">
     <div class="column">
       <h2>Input Code</h2>
