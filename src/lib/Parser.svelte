@@ -16,6 +16,7 @@
     { value: 'javascript', label: 'JavaScript' },
     { value: 'python', label: 'Python' },
     { value: 'rust', label: 'Rust' },
+    { value: 'sql', label: 'SQL' },
   ];
 
   let selectedLanguage = languages[0].value;
@@ -37,15 +38,17 @@
       await parseCode(code);
     } catch (error: any) {
       errorMessage = 'Language not supported';
+      console.error(error);
       parsedTree = ''; 
     }
   }
 
+
   async function parseCode(code: string) {
     const tree = await parser.parse(code);
     rootNode = tree.rootNode
-    parsedTree = formatTree(rootNode.toString());
-    console.log(rootNode.children);
+    parsedTree = formatTree(rootNode);
+
   }
 
   onMount(async () => {
