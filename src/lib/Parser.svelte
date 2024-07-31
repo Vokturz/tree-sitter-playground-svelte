@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import Parser from 'web-tree-sitter';
   import type { SyntaxNode } from 'web-tree-sitter';
-  import { formatTree } from './utils';
+  import { formatTree, type FormatTree } from './utils';
 
 
   let parser: Parser;
@@ -10,7 +10,7 @@
     console.log("Hello, Tree-sitter!");
 }`;
   let rootNode: SyntaxNode ;
-  let parsedTree = '';
+  let parsedTree: FormatTree[] = [];
 
   let languages = [
     { value: 'javascript', label: 'JavaScript' },
@@ -39,7 +39,7 @@
     } catch (error: any) {
       errorMessage = 'Language not supported';
       console.error(error);
-      parsedTree = ''; 
+      parsedTree = []; 
     }
   }
 
@@ -104,7 +104,24 @@
   }
 }
 
+let lastClickedButton: any = null;
 
+function handleButtonClick(event: any, item: FormatTree) {
+
+  if (lastClickedButton) {
+      lastClickedButton.style.color = '';
+      lastClickedButton.style.backgroundColor = '';
+      lastClickedButton.style.fontWeight = '';
+    }
+
+    const button = event.target;
+    button.style.color = '#af02ff';
+    button.style.backgroundColor = '#f0f0f0';
+    button.style.fontWeight = 'bold'
+    console.log(item.node);
+
+    lastClickedButton = button;
+  }
 </script>
 
 <style>
@@ -141,20 +158,42 @@
   h1, h2 {
     text-align: center;
   }
+
+  .hover {
+    text-decoration: none;
+    position: relative;
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    cursor: pointer;
+    color: #0066cc;
+    transition: color 0.2s ease-in-out;
+  }
+
+  .hover:hover {
+    color: #af02ff;
+    background-color: #f0f0f0;
+  }
+  
+  .no-border {
+  border: none;
+  outline: none;
+}
 </style>
 
 <main>
-  <h1>Tree-sitter</h1>
-  
+  <h1>Tree-sitter Playground</h1>
+  <p>Language:
+    <select bind:value={selectedLanguage}>
+      {#each languages as language }
+      <option value={language.value}>{language.label}</option>
+      {/each}
+    </select></p>
   <div class="container">
     <div class="column">
       <h2>Input Code</h2>
-      <p>Language:
-        <select bind:value={selectedLanguage}>
-          {#each languages as language }
-          <option value={language.value}>{language.label}</option>
-          {/each}
-        </select></p>
+
 
       <textarea bind:value={code} on:keydown={handleKeyPress}></textarea>
     </div>
@@ -164,7 +203,11 @@
       {#if errorMessage}
       <p style="color: red;">{errorMessage}</p>
       {:else}
-      <pre>{parsedTree}</pre>
+      <pre>
+        {#each parsedTree as item}
+          <div>{item.prefix}<button class="hover no-border" on:click={(event)=> handleButtonClick(event, item)}>{item.name}</button>{item.suffix}</div>
+        {/each}
+      </pre>
       {/if}
     </div>
   </div>
