@@ -7,7 +7,7 @@
 
   let parser: Parser;
   let code = `function example() {
-    console.log("Hello, Tree-sitter!");
+  console.log("Hello, Tree-sitter!");
 }`;
   let rootNode: SyntaxNode ;
   let parsedTree: FormatTree[] = [];
@@ -67,6 +67,16 @@
   function handleKeyPress(event: any) {
   const textarea = event.target;
   const { selectionStart, selectionEnd, value } = textarea;
+
+  if (event.key === 'Tab') {
+      // Prevent the default action (tabbing out of the textarea)
+      event.preventDefault();
+      const beforeCursor = value.substring(0, selectionStart);
+      const afterCursor = value.substring(selectionEnd);
+      const newValue = beforeCursor + '  ' + afterCursor;
+      textarea.value = newValue;
+      textarea.setSelectionRange(selectionStart + 2, selectionStart + 2);
+  }
 
   if (event.key === 'Enter') {
     const beforeCursor = value.substring(0, selectionStart);
