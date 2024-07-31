@@ -1,13 +1,25 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import Parser from 'web-tree-sitter';
+  import type { SyntaxNode } from 'web-tree-sitter';
 
-  let parser;
+
+  let parser: Parser;
   let code = `function example() {
     console.log("Hello, Tree-sitter!");
 }`;
-  let tree;
+  let rootNode: SyntaxNode ;
   let parsedTree = '';
 
+  let languages = [
+    { value: 'javascript', label: 'JavaScript' },
+    { value: 'python', label: 'Python' },
+    { value: 'rust', label: 'Rust' },
+  ];
+
+  let selectedLanguage = languages[0].value;
+
+  let errorMessage = '';
 
   function formatTree(treeString: string) {
     const indent = '  ';
@@ -50,28 +62,38 @@
     const { default: Parser } = await import('web-tree-sitter');
     await Parser.init();
     parser = new Parser();
-    const JavaScript = await Parser.Language.load('/tree-sitter-javascript.wasm');
-    parser.setLanguage(JavaScript);
+   
+  }
+
+  async function loadLanguage(language: string = 'javascript') {
+    try {
+      const Language = await Parser.Language.load(`/tree-sitter-${language}.wasm`);
+      parser.setLanguage(Language);
+      errorMessage = '';
+      await parseCode(code);
+    } catch (error: any) {
+      errorMessage = 'Language not supported';
+      parsedTree = ''; 
+    }
   }
 
   async function parseCode(code: string) {
-    tree = parser.parse(code);
-    parsedTree = formatTree(tree.rootNode.toString());
-
-    console.log(tree.rootNode)
+    const tree = await parser.parse(code);
+    rootNode = tree.rootNode
+    parsedTree = formatTree(rootNode.toString());
+    console.log(rootNode.children);
   }
 
   onMount(async () => {
-    console.log('starting');
     await loadParser();
-    await parseCode(code);
+    await loadLanguage(selectedLanguage);
   });
 
-  $: if (parser) {
-    parseCode(code);
-  }
+  $: if (selectedLanguage && parser) {
+    loadLanguage(selectedLanguage);
+  } 
 
-  function handleKeyPress(event) {
+  function handleKeyPress(event: any) {
   const textarea = event.target;
   const { selectionStart, selectionEnd, value } = textarea;
 
@@ -152,14 +174,27 @@
 
 <main>
   <h1>Tree-sitter</h1>
+  
   <div class="container">
     <div class="column">
       <h2>Input Code</h2>
+      <p>Language:
+        <select bind:value={selectedLanguage}>
+          {#each languages as language }
+          <option value={language.value}>{language.label}</option>
+          {/each}
+        </select></p>
+
       <textarea bind:value={code} on:keydown={handleKeyPress}></textarea>
     </div>
     <div class="column">
+      
       <h2>Parsed Syntax Tree</h2>
+      {#if errorMessage}
+      <p style="color: red;">{errorMessage}</p>
+      {:else}
       <pre>{parsedTree}</pre>
+      {/if}
     </div>
   </div>
 </main>
