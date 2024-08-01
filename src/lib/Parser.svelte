@@ -198,17 +198,29 @@
 
     // Add your logic here to run when content changes
   }
+
+  function selectLanguage(value) {
+    selectedLanguage = value;
+    handleContentChange()
+  }
 </script>
 
 <main>
   <h1>Tree-sitter Playground</h1>
-  <p>Language:
-    <select bind:value={selectedLanguage}>
-      {#each languages as language }
-      <option value={language.value}>{language.label}</option>
-      {/each}
-    </select>
-  </p>
+  <div class="language-selector">
+    <span>Language:</span>
+    {#each languages as language, i}
+      <button
+        class:active={selectedLanguage === language.value}
+        on:click={() => selectLanguage(language.value)}
+      >
+        {language.label}
+      </button>
+      {#if i < languages.length - 1}
+        <span class="separator">|</span>
+      {/if}
+    {/each}
+  </div>
   <div class="container">
     <div class="column">
       <h2>Input Code</h2>
@@ -230,7 +242,7 @@
       {:else}
       <pre>
         {#each parsedTree as item}
-          <div>{item.prefix}<button class="hover no-border" on:click={(event)=> handleButtonClick(event, item)}>{item.name}</button>{item.suffix}</div>
+          <div style="font-size: 14px; font-family: monospace;">{item.prefix}<button class="hover no-border" on:click={(event)=> handleButtonClick(event, item)}>{item.name}</button>{item.suffix}</div>
         {/each}
       </pre>
       {/if}
