@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import Parser from 'web-tree-sitter';
-  import type { SyntaxNode } from 'web-tree-sitter';
+  import type { SyntaxNode, Point } from 'web-tree-sitter';
   import { formatTree, type FormatTree } from './utils';
 
 
@@ -131,7 +131,27 @@ function handleButtonClick(event: any, item: FormatTree) {
     console.log(item.node);
 
     lastClickedButton = button;
+
+    const start = getCharacterIndexFromPosition(item.node.startPosition);
+    const end = getCharacterIndexFromPosition(item.node.endPosition);
+
+    console.log(code.substring(start, end));
+}
+
+function getCharacterIndexFromPosition(position: Point) {
+  const { row, column } = position;
+  const lines = code.split('\n');
+  let charIndex = 0;
+
+  for (let i = 0; i < row; i++) {
+    charIndex += lines[i].length + 1; // +1 for the newline character
   }
+
+  charIndex += column;
+  return charIndex;
+}
+
+
 </script>
 
 <style>
@@ -155,10 +175,17 @@ function handleButtonClick(event: any, item: FormatTree) {
     height: 100%;
     box-sizing: border-box;
   }
+
+  textarea:focus {
+    outline: none;
+  }
   pre {
     flex-grow: 1;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
     background: #f4f4f4;
-    padding: 10px;
+    padding-left: 10px;
     border: 1px solid #ddd;
     white-space: pre-wrap;
     word-wrap: break-word;
