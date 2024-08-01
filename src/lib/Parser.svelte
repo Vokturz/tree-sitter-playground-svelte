@@ -1,20 +1,17 @@
-<svelte:head>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/rangy/1.3.0/rangy-core.js"></script>
-  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/rangy/1.3.0/rangy-textrange.js"></script>
-</svelte:head>
-
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import Parser from 'web-tree-sitter';
   import type { SyntaxNode, Point } from 'web-tree-sitter';
   import { escapeHtml, formatTree, type FormatTree } from './utils';
+  import rangy from 'rangy'
+  import 'rangy/lib/rangy-core'
+  import 'rangy/lib/rangy-textrange'
   
   let parser: Parser;
   let code = `function example(name) {
   console.log("Hello, " + name + "!");
 }`;
-  let prevCode = ''
+  let prevCode = code
   let html: string = '';
   let div: HTMLDivElement
   let rootNode: SyntaxNode ;
@@ -170,7 +167,6 @@
   }
 
   $: (async () => {
-      if (!window.rangy) return;
       if (code !== prevCode) {
         prevCode = code;
         html = code;
@@ -178,7 +174,6 @@
       }
       let sel = rangy.getSelection();
       let savedSel = sel.saveCharacterRanges(div);
-
       let toHighlight = escapeHtml(code.substring(range.start, range.end))
       if (lastItem?.name === 'ERROR') {
         toHighlight = `<a href=# style="color: red;">${toHighlight}</a>`
