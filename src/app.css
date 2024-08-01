@@ -94,7 +94,7 @@ pre {
 }
 
 h1, h2 {
-  text-align: center;
+  text-align: left;
 }
 
 .hover {
@@ -186,6 +186,28 @@ button.active {
   margin: 0 5px;
   color: #ccc;
 }
+
+
+.header-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  margin-right: 20px;
+}
+
+.checkbox-label input {
+  margin-right: 5px;
+  accent-color: #af02ff;
+  cursor: pointer;
+}
+
+
 
 /* Media Queries for Responsive Design */
 

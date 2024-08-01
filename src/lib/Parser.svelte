@@ -36,7 +36,7 @@
   ];
 
   let selectedLanguage = languages[1].value;
-
+  let hideNoNamed = false
   let errorMessage = '';
 
   async function loadParser() {
@@ -63,7 +63,7 @@
   async function parseCode(code: string) {
     const tree = await parser.parse(code);
     rootNode = tree.rootNode
-    parsedTree = formatTree(rootNode);
+    parsedTree = formatTree(rootNode, hideNoNamed);
   }
 
   onMount(async () => {
@@ -204,9 +204,15 @@
     // Add your logic here to run when content changes
   }
 
-  function selectLanguage(value) {
+  function selectLanguage(value: string) {
     selectedLanguage = value;
     handleContentChange()
+  }
+
+  function handleHideNoNamedChange() {
+    if (code && parser) {
+      parseCode(code);
+    }
   }
 </script>
 
@@ -227,8 +233,9 @@
   </div>
   <div class="container">
     <div class="column">
+      <div class="header-container">
       <h2>Input Code</h2>
-
+      </div>
       <div class="div-textarea"
         contenteditable="plaintext-only"
         bind:this={div}
@@ -239,16 +246,21 @@
       <!-- <textarea bind:value={code} on:keydown={handleKeyPress}></textarea> -->
     </div>
     <div class="column">
-      
-      <h2>Parsed Syntax Tree</h2>
+      <div class="header-container">
+        <h2>Parsed Syntax Tree</h2>
+        <label class="checkbox-label">
+          <input type="checkbox" bind:checked={hideNoNamed} on:change={handleHideNoNamedChange}>
+          Hide unnamed nodes
+        </label>
+      </div>
       {#if errorMessage}
-      <p style="color: red;">{errorMessage}</p>
+        <p style="color: red;">{errorMessage}</p>
       {:else}
-      <pre>
-        {#each parsedTree as item}
-          <div style="font-size: 13px; font-family: monospace;">{item.prefix}<button class="hover no-border" on:click={(event)=> handleButtonClick(event, item)}>{item.name}</button>{item.suffix}</div>
-        {/each}
-      </pre>
+        <pre>
+          {#each parsedTree as item}
+            <div style="font-size: 13px; font-family: monospace;">{item.prefix}<button class="hover no-border" on:click={(event)=> handleButtonClick(event, item)}>{item.name}</button>{item.suffix}</div>
+          {/each}
+        </pre>
       {/if}
     </div>
   </div>
