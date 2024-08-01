@@ -23,3 +23,13 @@ export function formatTree(node: SyntaxNode, indent: string = '', childId = 0): 
     return result;
   }
   
+
+export function escapeHtml(unsafe: string) {
+    return unsafe
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
+}
+

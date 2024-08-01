@@ -8,8 +8,8 @@
   import { onMount, tick } from 'svelte';
   import Parser from 'web-tree-sitter';
   import type { SyntaxNode, Point } from 'web-tree-sitter';
-  import { formatTree, type FormatTree } from './utils';
-
+  import { escapeHtml, formatTree, type FormatTree } from './utils';
+  
   let parser: Parser;
   let code = `function example(name) {
   console.log("Hello, " + name + "!");
@@ -75,55 +75,55 @@
     parseCode(code);
   }
 
-  function handleKeyPress(event: any) {
-    const textarea = event.target;
-    const { selectionStart, selectionEnd, value } = textarea;
+  // function handleKeyPress(event: any) {
+  //   const textarea = event.target;
+  //   const { selectionStart, selectionEnd, value } = textarea;
 
-    if (event.key === 'Tab') {
-        // Prevent the default action (tabbing out of the textarea)
-        event.preventDefault();
-        const beforeCursor = value.substring(0, selectionStart);
-        const afterCursor = value.substring(selectionEnd);
-        const newValue = beforeCursor + '  ' + afterCursor;
-        textarea.value = newValue;
-        textarea.setSelectionRange(selectionStart + 2, selectionStart + 2);
-    }
+  //   if (event.key === 'Tab') {
+  //       // Prevent the default action (tabbing out of the textarea)
+  //       event.preventDefault();
+  //       const beforeCursor = value.substring(0, selectionStart);
+  //       const afterCursor = value.substring(selectionEnd);
+  //       const newValue = beforeCursor + '  ' + afterCursor;
+  //       textarea.value = newValue;
+  //       textarea.setSelectionRange(selectionStart + 2, selectionStart + 2);
+  //   }
 
-    if (event.key === 'Enter') {
-      const beforeCursor = value.substring(0, selectionStart);
-      const afterCursor = value.substring(selectionEnd);
-      const lastChar = beforeCursor[beforeCursor.length - 1];
+  //   if (event.key === 'Enter') {
+  //     const beforeCursor = value.substring(0, selectionStart);
+  //     const afterCursor = value.substring(selectionEnd);
+  //     const lastChar = beforeCursor[beforeCursor.length - 1];
 
-      // Calculate the current indentation level
-      const lines = beforeCursor.split('\n');
-      let currentIndentLevel = 0;
-      for (let line of lines) {
-        currentIndentLevel += (line.match(/{/g) || []).length;
-        currentIndentLevel -= (line.match(/}/g) || []).length;
-      }
+  //     // Calculate the current indentation level
+  //     const lines = beforeCursor.split('\n');
+  //     let currentIndentLevel = 0;
+  //     for (let line of lines) {
+  //       currentIndentLevel += (line.match(/{/g) || []).length;
+  //       currentIndentLevel -= (line.match(/}/g) || []).length;
+  //     }
 
-      // Get the current line's indentation
-      const currentLine = lines[lines.length - 1];
-      const currentIndent = currentLine.match(/^\s*/)[0];
+  //     // Get the current line's indentation
+  //     const currentLine = lines[lines.length - 1];
+  //     const currentIndent = currentLine.match(/^\s*/)[0];
 
-      // Generate the new indentation string
-      const indent = '  ';
-      let newIndent = '\n' + currentIndent;
+  //     // Generate the new indentation string
+  //     const indent = '  ';
+  //     let newIndent = '\n' + currentIndent;
 
-      if (lastChar === '{' || lastChar === ':') {
-        newIndent += indent;
-      }
+  //     if (lastChar === '{' || lastChar === ':') {
+  //       newIndent += indent;
+  //     }
 
-      // Prevent default enter behavior and insert the new line with the correct indentation
-      event.preventDefault();
-      const newValue = beforeCursor + newIndent + afterCursor;
-      textarea.value = newValue;
-      textarea.setSelectionRange(selectionStart + newIndent.length, selectionStart + newIndent.length);
+  //     // Prevent default enter behavior and insert the new line with the correct indentation
+  //     event.preventDefault();
+  //     const newValue = beforeCursor + newIndent + afterCursor;
+  //     textarea.value = newValue;
+  //     textarea.setSelectionRange(selectionStart + newIndent.length, selectionStart + newIndent.length);
 
-      // Update the bound code variable
-      code = newValue;
-    }
-  }
+  //     // Update the bound code variable
+  //     code = newValue;
+  //   }
+  // }
 
   let lastClickedButton: any = null;
   let lastItem: FormatTree | null = null;
@@ -171,7 +171,8 @@
       let sel = rangy.getSelection();
       let savedSel = sel.saveCharacterRanges(div);
 
-      html = code.substring(0, range.start) + `<a href=#>${code.substring(range.start, range.end)}</a>` + code.substring(range.end);
+      html = escapeHtml(code.substring(0, range.start)) + 
+      `<a href=#>${escapeHtml(code.substring(range.start, range.end))}</a>` + escapeHtml(code.substring(range.end));
       await tick();
       sel.restoreCharacterRanges(div, savedSel);
     })();
