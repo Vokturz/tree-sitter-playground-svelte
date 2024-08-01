@@ -4,7 +4,7 @@
 
 <main>
 
-  <div class="card">
+  <div>
     <Parser />
   </div>
 

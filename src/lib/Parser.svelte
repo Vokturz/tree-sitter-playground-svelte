@@ -11,8 +11,8 @@
   import { formatTree, type FormatTree } from './utils';
 
   let parser: Parser;
-  let code = `function example() {
-  console.log("Hello, Tree-sitter!");
+  let code = `function example(name) {
+  console.log("Hello, " + name + "!");
 }`;
   let prevCode = ''
   let html: string = '';
@@ -31,7 +31,7 @@
     { value: 'sql', label: 'SQL' },
   ];
 
-  let selectedLanguage = languages[0].value;
+  let selectedLanguage = languages[1].value;
 
   let errorMessage = '';
 
@@ -217,7 +217,7 @@
         {language.label}
       </button>
       {#if i < languages.length - 1}
-        <span class="separator">|</span>
+        <span class="separator"> | </span>
       {/if}
     {/each}
   </div>
@@ -242,7 +242,7 @@
       {:else}
       <pre>
         {#each parsedTree as item}
-          <div style="font-size: 14px; font-family: monospace;">{item.prefix}<button class="hover no-border" on:click={(event)=> handleButtonClick(event, item)}>{item.name}</button>{item.suffix}</div>
+          <div style="font-size: 13px; font-family: monospace;">{item.prefix}<button class="hover no-border" on:click={(event)=> handleButtonClick(event, item)}>{item.name}</button>{item.suffix}</div>
         {/each}
       </pre>
       {/if}
