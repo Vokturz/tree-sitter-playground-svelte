@@ -150,74 +150,7 @@ function getCharacterIndexFromPosition(position: Point) {
   charIndex += column;
   return charIndex;
 }
-
-
 </script>
-
-<style>
-  .container {
-    display: flex;
-    flex-direction: row;
-    gap: 20px;
-    padding: 20px;
-    height: 50vh;
-  }
-  .column {
-    flex-grow: 1;
-    padding: 10px;
-    display: flex;
-    flex-direction: column;
-    width: 100vh;
-  }
-  textarea {
-    flex-grow: 1;
-    width: 100%;
-    height: 100%;
-    box-sizing: border-box;
-  }
-
-  textarea:focus {
-    outline: none;
-  }
-  pre {
-    flex-grow: 1;
-    width: 100%;
-    height: 100%;
-    box-sizing: border-box;
-    background: #f4f4f4;
-    padding-left: 10px;
-    border: 1px solid #ddd;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    overflow: auto;
-    text-align: left;
-  }
-  h1, h2 {
-    text-align: center;
-  }
-
-  .hover {
-    text-decoration: none;
-    position: relative;
-    background: none;
-    border: none;
-    padding: 0;
-    font: inherit;
-    cursor: pointer;
-    color: #0066cc;
-    transition: color 0.2s ease-in-out;
-  }
-
-  .hover:hover {
-    color: #af02ff;
-    background-color: #f0f0f0;
-  }
-  
-  .no-border {
-  border: none;
-  outline: none;
-}
-</style>
 
 <main>
   <h1>Tree-sitter Playground</h1>
