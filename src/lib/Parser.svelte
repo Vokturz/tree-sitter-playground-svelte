@@ -36,7 +36,7 @@
   ];
 
   let selectedLanguage = languages[1].value;
-  let hideNoNamed = false
+  let hideNoNamed = true
   let errorMessage = '';
 
   async function loadParser() {
@@ -245,6 +245,7 @@
       </div>
       <!-- <textarea bind:value={code} on:keydown={handleKeyPress}></textarea> -->
     </div>
+
     <div class="column">
       <div class="header-container">
         <h2>Parsed Syntax Tree</h2>
