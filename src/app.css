@@ -72,6 +72,7 @@ h1 {
   display: flex;
   flex-direction: column;
   width: 150vh;
+  min-width: 0;
 }
 
 textarea:focus {
