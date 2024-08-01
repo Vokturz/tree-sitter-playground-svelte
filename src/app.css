@@ -183,6 +183,14 @@ button.active {
   color: white;
 }
 
+button .error {
+  color: red;
+}
+
+button.active .error {
+  color: red;
+}
+
 .separator {
   margin: 0 5px;
   color: #ccc;

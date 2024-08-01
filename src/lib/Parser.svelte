@@ -141,7 +141,11 @@
       }
 
     const button = event.target;
-    button.style.color = '#af02ff';
+    if (item.name === 'ERROR') {
+      button.style.color = 'red';
+    } else {
+      button.style.color = '#af02ff';
+    }
     button.style.backgroundColor = '#f0f0f0';
     button.style.fontWeight = 'bold'
 
@@ -175,8 +179,13 @@
       let sel = rangy.getSelection();
       let savedSel = sel.saveCharacterRanges(div);
 
-      html = escapeHtml(code.substring(0, range.start)) + 
-      `<a href=#>${escapeHtml(code.substring(range.start, range.end))}</a>` + escapeHtml(code.substring(range.end));
+      let toHighlight = escapeHtml(code.substring(range.start, range.end))
+      if (lastItem?.name === 'ERROR') {
+        toHighlight = `<a href=# style="color: red;">${toHighlight}</a>`
+      } else {
+        toHighlight =  `<a href=#>${toHighlight}</a>`
+      }
+      html = escapeHtml(code.substring(0, range.start)) + toHighlight + escapeHtml(code.substring(range.end));
       await tick();
       sel.restoreCharacterRanges(div, savedSel);
     })();
@@ -259,7 +268,8 @@
       {:else}
         <pre>
           {#each parsedTree as item}
-            <div style="font-size: 13px; font-family: monospace;">{item.prefix}<button class="hover no-border" on:click={(event)=> handleButtonClick(event, item)}>{item.name}</button>{item.suffix}</div>
+            <div style="font-size: 13px; font-family: monospace;">{item.prefix}<button class="hover no-border" on:click={(event)=> handleButtonClick(event, item)}
+              >{#if item.name === 'ERROR'}<span class="error">{item.name}</span>{:else}{item.name}{/if}</button>{item.suffix}</div>
           {/each}
         </pre>
       {/if}
