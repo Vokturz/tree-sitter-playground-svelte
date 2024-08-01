@@ -26,8 +26,8 @@
 
   let languages = [
     { value: 'javascript', label: 'JavaScript' },
+    { value: 'typescript', label: 'Typescript' },
     { value: 'python', label: 'Python' },
-    { value: 'rust', label: 'Rust' },
     { value: 'sql', label: 'SQL' },
   ];
 
@@ -60,7 +60,6 @@
     const tree = await parser.parse(code);
     rootNode = tree.rootNode
     parsedTree = formatTree(rootNode);
-
   }
 
   onMount(async () => {
@@ -208,7 +207,8 @@
       {#each languages as language }
       <option value={language.value}>{language.label}</option>
       {/each}
-    </select></p>
+    </select>
+  </p>
   <div class="container">
     <div class="column">
       <h2>Input Code</h2>

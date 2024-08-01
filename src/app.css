@@ -14,10 +14,10 @@
 }
 
 a {
-  font-weight: 500;
   color: #af02ff;
   background-color: #f0f0f0;
   text-decoration: inherit;
+  font-weight: 700;
 }
 a:hover {
   color: #af02ff;
