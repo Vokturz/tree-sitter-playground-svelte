@@ -1,16 +1,28 @@
+<svelte:head>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/rangy/1.3.0/rangy-core.js"></script>
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/rangy/1.3.0/rangy-textrange.js"></script>
+</svelte:head>
+
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import Parser from 'web-tree-sitter';
   import type { SyntaxNode, Point } from 'web-tree-sitter';
   import { formatTree, type FormatTree } from './utils';
-
 
   let parser: Parser;
   let code = `function example() {
   console.log("Hello, Tree-sitter!");
 }`;
+  let prevCode = ''
+  let html: string = '';
+  let div: HTMLDivElement
   let rootNode: SyntaxNode ;
   let parsedTree: FormatTree[] = [];
+  let range = {
+    start: 0,
+    end: 0
+  }
 
   let languages = [
     { value: 'javascript', label: 'JavaScript' },
@@ -65,91 +77,128 @@
   }
 
   function handleKeyPress(event: any) {
-  const textarea = event.target;
-  const { selectionStart, selectionEnd, value } = textarea;
+    const textarea = event.target;
+    const { selectionStart, selectionEnd, value } = textarea;
 
-  if (event.key === 'Tab') {
-      // Prevent the default action (tabbing out of the textarea)
-      event.preventDefault();
+    if (event.key === 'Tab') {
+        // Prevent the default action (tabbing out of the textarea)
+        event.preventDefault();
+        const beforeCursor = value.substring(0, selectionStart);
+        const afterCursor = value.substring(selectionEnd);
+        const newValue = beforeCursor + '  ' + afterCursor;
+        textarea.value = newValue;
+        textarea.setSelectionRange(selectionStart + 2, selectionStart + 2);
+    }
+
+    if (event.key === 'Enter') {
       const beforeCursor = value.substring(0, selectionStart);
       const afterCursor = value.substring(selectionEnd);
-      const newValue = beforeCursor + '  ' + afterCursor;
+      const lastChar = beforeCursor[beforeCursor.length - 1];
+
+      // Calculate the current indentation level
+      const lines = beforeCursor.split('\n');
+      let currentIndentLevel = 0;
+      for (let line of lines) {
+        currentIndentLevel += (line.match(/{/g) || []).length;
+        currentIndentLevel -= (line.match(/}/g) || []).length;
+      }
+
+      // Get the current line's indentation
+      const currentLine = lines[lines.length - 1];
+      const currentIndent = currentLine.match(/^\s*/)[0];
+
+      // Generate the new indentation string
+      const indent = '  ';
+      let newIndent = '\n' + currentIndent;
+
+      if (lastChar === '{' || lastChar === ':') {
+        newIndent += indent;
+      }
+
+      // Prevent default enter behavior and insert the new line with the correct indentation
+      event.preventDefault();
+      const newValue = beforeCursor + newIndent + afterCursor;
       textarea.value = newValue;
-      textarea.setSelectionRange(selectionStart + 2, selectionStart + 2);
+      textarea.setSelectionRange(selectionStart + newIndent.length, selectionStart + newIndent.length);
+
+      // Update the bound code variable
+      code = newValue;
+    }
   }
 
-  if (event.key === 'Enter') {
-    const beforeCursor = value.substring(0, selectionStart);
-    const afterCursor = value.substring(selectionEnd);
-    const lastChar = beforeCursor[beforeCursor.length - 1];
+  let lastClickedButton: any = null;
+  let lastItem: FormatTree | null = null;
 
-    // Calculate the current indentation level
-    const lines = beforeCursor.split('\n');
-    let currentIndentLevel = 0;
-    for (let line of lines) {
-      currentIndentLevel += (line.match(/{/g) || []).length;
-      currentIndentLevel -= (line.match(/}/g) || []).length;
-    }
+  function handleButtonClick(event: any, item: FormatTree) {
 
-    // Get the current line's indentation
-    const currentLine = lines[lines.length - 1];
-    const currentIndent = currentLine.match(/^\s*/)[0];
-
-    // Generate the new indentation string
-    const indent = '  ';
-    let newIndent = '\n' + currentIndent;
-
-    if (lastChar === '{' || lastChar === ':') {
-      newIndent += indent;
-    }
-
-    // Prevent default enter behavior and insert the new line with the correct indentation
-    event.preventDefault();
-    const newValue = beforeCursor + newIndent + afterCursor;
-    textarea.value = newValue;
-    textarea.setSelectionRange(selectionStart + newIndent.length, selectionStart + newIndent.length);
-
-    // Update the bound code variable
-    code = newValue;
-  }
-}
-
-let lastClickedButton: any = null;
-
-function handleButtonClick(event: any, item: FormatTree) {
-
-  if (lastClickedButton) {
-      lastClickedButton.style.color = '';
-      lastClickedButton.style.backgroundColor = '';
-      lastClickedButton.style.fontWeight = '';
-    }
+    if (lastClickedButton) {
+        lastClickedButton.style.color = '';
+        lastClickedButton.style.backgroundColor = '';
+        lastClickedButton.style.fontWeight = '';
+      }
 
     const button = event.target;
     button.style.color = '#af02ff';
     button.style.backgroundColor = '#f0f0f0';
     button.style.fontWeight = 'bold'
-    console.log(item.node);
 
     lastClickedButton = button;
+    lastItem = item;
 
-    const start = getCharacterIndexFromPosition(item.node.startPosition);
-    const end = getCharacterIndexFromPosition(item.node.endPosition);
-
-    console.log(code.substring(start, end));
-}
-
-function getCharacterIndexFromPosition(position: Point) {
-  const { row, column } = position;
-  const lines = code.split('\n');
-  let charIndex = 0;
-
-  for (let i = 0; i < row; i++) {
-    charIndex += lines[i].length + 1; // +1 for the newline character
+    range.start = getCharacterIndexFromPosition(item.startPosition);
+    range.end = getCharacterIndexFromPosition(item.endPosition);
   }
 
-  charIndex += column;
-  return charIndex;
-}
+  function getCharacterIndexFromPosition(position: Point) {
+    const { row, column } = position;
+    const lines = prevCode.split('\n');
+    let charIndex = 0;
+
+    for (let i = 0; i < row; i++) {
+      charIndex += lines[i].length + 1; // +1 for the newline character
+    }
+
+    charIndex += column;
+    return charIndex;
+  }
+
+  $: (async () => {
+      if (!window.rangy) return;
+      if (code !== prevCode) {
+        prevCode = code;
+        html = code;
+        handleContentChange();
+      }
+      let sel = rangy.getSelection();
+      let savedSel = sel.saveCharacterRanges(div);
+
+      html = code.substring(0, range.start) + `<a href=#>${code.substring(range.start, range.end)}</a>` + code.substring(range.end);
+      await tick();
+      sel.restoreCharacterRanges(div, savedSel);
+    })();
+
+  function handleContentChange() {
+    // const item = parsedTree.find(item => item.startPosition.row === lastItem?.startPosition.row && item.name === lastItem?.name)
+    // console.log({lastItem, item})
+    // if (item) {
+    //   item.startPosition.column +=1 
+    //   range.start = getCharacterIndexFromPosition(item.startPosition);
+    //   range.end = getCharacterIndexFromPosition(item.endPosition);
+    //   lastItem = item
+    // } else {
+    range.start = 0
+    range.end = 0
+    if (lastClickedButton) {
+      lastClickedButton.style.color = '';
+      lastClickedButton.style.backgroundColor = '';
+      lastClickedButton.style.fontWeight = '';
+    }
+    lastItem = null
+    lastClickedButton = null
+    // }
+
+    // Add your logic here to run when content changes
+  }
 </script>
 
 <main>
@@ -164,8 +213,14 @@ function getCharacterIndexFromPosition(position: Point) {
     <div class="column">
       <h2>Input Code</h2>
 
-
-      <textarea bind:value={code} on:keydown={handleKeyPress}></textarea>
+      <div class="div-textarea"
+        contenteditable="plaintext-only"
+        bind:this={div}
+        bind:innerHTML={html}
+        bind:textContent={code}
+        >
+      </div>
+      <!-- <textarea bind:value={code} on:keydown={handleKeyPress}></textarea> -->
     </div>
     <div class="column">
       

@@ -1,10 +1,12 @@
-import type { SyntaxNode } from 'web-tree-sitter';
+import type { SyntaxNode, Point } from 'web-tree-sitter';
 
-export type FormatTree = {node: SyntaxNode, prefix: string, name: string, suffix: string}
+export type FormatTree = {id: number, startPosition: Point, endPosition: Point, prefix: string, name: string, suffix: string}
 
 export function formatTree(node: SyntaxNode, indent: string = ''): Array<FormatTree> {
     let result = [{
-      node: node,
+      id: node.id,
+      startPosition: node.startPosition,
+      endPosition: node.endPosition,
       prefix: indent,
       name: node.type,
       suffix: ` [${node.startPosition.row}, ${node.startPosition.column}] - [${node.endPosition.row}, ${node.endPosition.column}]`
