@@ -26,8 +26,12 @@
 
   let languages = [
     { value: 'javascript', label: 'JavaScript' },
-    { value: 'typescript', label: 'Typescript' },
+    { value: 'tsx', label: 'Typescript (TSX)' },
     { value: 'python', label: 'Python' },
+    { value: 'c', label: 'C' },
+    { value: 'cpp', label: 'C++' },
+    { value: 'c_sharp', label: 'C#' },
+    { value: 'java', label: 'Java' },
     { value: 'sql', label: 'SQL' },
   ];
 
@@ -207,7 +211,6 @@
 </script>
 
 <main>
-  <h1>Tree-sitter Playground</h1>
   <div class="language-selector">
     <span>Language:</span>
     {#each languages as language, i}
