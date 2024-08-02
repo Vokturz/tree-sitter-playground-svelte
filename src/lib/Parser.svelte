@@ -34,6 +34,7 @@
 
   let selectedLanguage = languages[1].value;
   let hideNoNamed = true
+  let hideErrors = false
   let errorMessage = '';
 
   async function loadParser() {
@@ -60,7 +61,7 @@
   async function parseCode(code: string) {
     const tree = await parser.parse(code);
     rootNode = tree.rootNode
-    parsedTree = formatTree(rootNode, hideNoNamed);
+    parsedTree = formatTree(rootNode, hideNoNamed, hideErrors);
   }
 
   onMount(async () => {
@@ -213,11 +214,12 @@
     handleContentChange()
   }
 
-  function handleHideNoNamedChange() {
+  function handleCheckBoxChange() {
     if (code && parser) {
       parseCode(code);
     }
   }
+  
 </script>
 
 <main>
@@ -254,8 +256,12 @@
       <div class="header-container">
         <h2>Parsed Syntax Tree</h2>
         <label class="checkbox-label">
-          <input type="checkbox" bind:checked={hideNoNamed} on:change={handleHideNoNamedChange}>
+          <input type="checkbox" bind:checked={hideNoNamed} on:change={handleCheckBoxChange}>
           Hide unnamed nodes
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" style="accent-color: red;" bind:checked={hideErrors} on:change={handleCheckBoxChange}>
+          Hide errors
         </label>
       </div>
       {#if errorMessage}
