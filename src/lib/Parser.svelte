@@ -53,15 +53,19 @@
     } catch (error: any) {
       errorMessage = 'Language not supported';
       console.error(error);
-      parsedTree = []; 
+      parsedTree = [];
     }
   }
 
 
   async function parseCode(code: string) {
-    const tree = await parser.parse(code);
-    rootNode = tree.rootNode
-    parsedTree = formatTree(rootNode, hideNoNamed, hideErrors);
+    try {
+      const tree = await parser.parse(code);
+      rootNode = tree.rootNode
+      parsedTree = formatTree(rootNode, hideNoNamed, hideErrors);
+    } catch (error: any) {
+      parsedTree = [];
+    }
   }
 
   onMount(async () => {
@@ -72,6 +76,7 @@
   $: if (selectedLanguage && parser) {
     loadLanguage(selectedLanguage);
   } 
+
 
   $: if (code && parser) {
     parseCode(code);
@@ -210,8 +215,11 @@
   }
 
   function selectLanguage(value: string) {
-    selectedLanguage = value;
-    handleContentChange()
+    if (value !== selectedLanguage) {
+      loadParser()
+      selectedLanguage = value;
+      handleContentChange()
+    }
   }
 
   function handleCheckBoxChange() {
