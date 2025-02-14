@@ -37,12 +37,41 @@ h1 {
   line-height: 1.1;
 }
 
+.editor-container {
+  height: 300px;
+  border: 2px solid #ccc; /* Adjust thickness & color */
+  border-radius: 6px;  /* Rounded corners */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* Optional shadow */
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  background-color: #fafafa; /* Light background */
+}
+
+/* Make sure the CodeMirror editor is fully contained */
+.cm-editor {
+  width: 100%;
+  height: 100%;
+}
+
+
+.highlighted-text-red { color: red; }
+.highlighted-text-blue { color: blue; }
+.highlighted-text-green { color: green; }
+.highlighted-text-orange { color: orange; }
+.highlighted-text-purple { color: purple; }
+.highlighted-text-brown { color: brown; }
+.highlighted-text-pink { color: pink; }
+.clicked-node-highlight {
+  background-color: rgba(173, 216, 230, 0.5) !important; /* Light blue */
+  border-radius: 3px;
+}
 
 #app {
   max-width: 1280px;
   margin: 0 auto;
   padding: 2rem;
-  text-align: center;
+  text-align: left;
 }
 
 @media (prefers-color-scheme: light) {
