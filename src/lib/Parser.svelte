@@ -366,30 +366,50 @@ let parser: Parser;
 
   let lastClickedButton: any = null;
   let lastItem: FormatTree | null = null;
-
+  let lastClickedItem: FormatTree | null = null;
 
   let highlightDecoration = Decoration.mark({ class: "highlighted-text" });
   let highlightRanges = [];
 
   function handleButtonClick(event: any, item: FormatTree) {
-    if (lastClickedButton) {
-      lastClickedButton.style.color = "";
-      lastClickedButton.style.backgroundColor = "";
-      lastClickedButton.style.fontWeight = "";
-    }
+      // If the same node is clicked again, toggle it off (remove highlight & bold)
+      if (lastClickedItem === item) {
+          if (lastClickedButton) {
+              lastClickedButton.style.color = "";
+              lastClickedButton.style.backgroundColor = "";
+              lastClickedButton.style.fontWeight = "";
+          }
 
-    const button = event.target;
-    button.style.backgroundColor = "#f0f0f0";
-    button.style.fontWeight = "bold";
-    lastClickedButton = button;
-    lastItem = item;
+          lastClickedItem = null;
+          lastClickedButton = null;
 
-    // Get character index from Tree-Sitter node position
-    range.start = getCharacterIndexFromPosition(item.startPosition);
-    range.end = getCharacterIndexFromPosition(item.endPosition);
+          // Clear highlight in the code editor
+          updateClickedNodeHighlight(0, 0);
+          return;
+      }
 
-    // Ensure only ONE node is highlighted at a time
-    updateClickedNodeHighlight(range.start, range.end);
+      // Clear previous selection
+      if (lastClickedButton) {
+          lastClickedButton.style.color = "";
+          lastClickedButton.style.backgroundColor = "";
+          lastClickedButton.style.fontWeight = "";
+      }
+
+      // Apply bold styling to the clicked node
+      const button = event.target;
+      button.style.color = "black"; // Keep it readable
+      button.style.backgroundColor = "#f0f0f0";
+      button.style.fontWeight = "bold";
+
+      lastClickedButton = button;
+      lastClickedItem = item;
+
+      // Get character index from Tree-Sitter node position
+      range.start = getCharacterIndexFromPosition(item.startPosition);
+      range.end = getCharacterIndexFromPosition(item.endPosition);
+
+      // Apply highlight in the code editor
+      updateClickedNodeHighlight(range.start, range.end);
   }
 
   function updateClickedNodeHighlight(start: number, end: number) {
