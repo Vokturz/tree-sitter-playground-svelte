@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, tick } from 'svelte';
+  import { onMount, tick , onDestroy} from 'svelte';
   import Parser from 'web-tree-sitter';
   import type { SyntaxNode, Point } from 'web-tree-sitter';
   import { escapeHtml, formatTree, type FormatTree } from './utils';
@@ -7,7 +7,46 @@
   import 'rangy/lib/rangy-core'
   import 'rangy/lib/rangy-textrange'
   
-  let parser: Parser;
+  // Optionally, import a mode for syntax highlighting:
+  // import 'codemirror/mode/javascript/javascript.js';
+  import { EditorState } from '@codemirror/state';
+  import { javascript } from '@codemirror/lang-javascript';
+  import { EditorView, lineNumbers } from '@codemirror/view';
+  import { history, defaultKeymap, historyKeymap } from '@codemirror/commands';
+  import { keymap } from '@codemirror/view';
+
+  import { StateEffect, StateField, RangeSetBuilder } from "@codemirror/state";
+  import { Decoration, ViewPlugin, WidgetType } from "@codemirror/view";
+
+  // Define a state effect to apply highlighting
+
+
+  const highlightEffect = StateEffect.define<{ start: number; end: number }>();
+
+  // State field that tracks highlighted ranges
+  const highlightField = StateField.define({
+    create() {
+      return Decoration.none;
+    },
+    update(_, tr) {
+      let builder = new RangeSetBuilder();
+
+      // Process only the latest highlight from effects
+      for (let effect of tr.effects) {
+        if (effect.is(highlightEffect)) {
+          builder.add(effect.value.start, effect.value.end, 
+            Decoration.mark({ class: "highlighted-text" })
+          );
+        }
+      }
+
+      return builder.finish();
+    },
+    provide: (f) => EditorView.decorations.from(f),
+  });
+
+
+let parser: Parser;
   let code = `function example(name) {
   console.log("Hello, " + name + "!");
 }`;
@@ -20,7 +59,7 @@
     start: 0,
     end: 0
   }
-
+  
   let languages = [
     { value: 'javascript', label: 'JavaScript' },
     { value: 'tsx', label: 'Typescript (TSX)' },
@@ -41,6 +80,11 @@
   // NEW: query variable to hold the query text
   let query = '';
   let queryHighlightRanges: Array<{ start: number; end: number }> = [];
+
+  // Remove or deprecate the old 'div' variable if it's only used for the old code box.
+  // Instead, introduce a variable for CodeMirror's container:
+  let editorContainer: HTMLDivElement;
+  let editorView: EditorView;
 
   async function loadParser() {
     const { default: Parser } = await import('web-tree-sitter');
@@ -113,7 +157,41 @@
   onMount(async () => {
     await loadParser();
     await loadLanguage(selectedLanguage);
+    await tick(); // Ensure Svelte has assigned the container before using it
+
+    // Create an EditorState with the current code as the document.
+    const state = EditorState.create({
+      doc: code,
+      extensions: [
+        keymap.of([...defaultKeymap, ...historyKeymap]), // Basic keybindings
+        history(), // Undo/redo support
+        javascript(), // Language support
+        highlightField,  // Add highlight tracking
+        lineNumbers(), // Enable line numbers 
+        EditorView.updateListener.of(update => {
+          if (update.docChanged) {
+            code = update.state.doc.toString();
+          }
+        })
+      ]
+    });
+
+    // Create and mount the CodeMirror editor.
+    editorView = new EditorView({
+      state,
+      parent: editorContainer
+    });
+
+    editorView.focus(); // Ensure it accepts input
+
   });
+
+  onDestroy(() => {
+    if (editorView) {
+      editorView.destroy();
+    }
+  });
+
 
   $: if (selectedLanguage && parser) {
     loadLanguage(selectedLanguage);
@@ -219,29 +297,40 @@
   let lastClickedButton: any = null;
   let lastItem: FormatTree | null = null;
 
-  function handleButtonClick(event: any, item: FormatTree) {
 
+  let highlightDecoration = Decoration.mark({ class: "highlighted-text" });
+  let highlightRanges = [];
+
+  function handleButtonClick(event: any, item: FormatTree) {
     if (lastClickedButton) {
-        lastClickedButton.style.color = '';
-        lastClickedButton.style.backgroundColor = '';
-        lastClickedButton.style.fontWeight = '';
-      }
+      lastClickedButton.style.color = "";
+      lastClickedButton.style.backgroundColor = "";
+      lastClickedButton.style.fontWeight = "";
+    }
 
     const button = event.target;
-    if (item.name === 'ERROR') {
-      button.style.color = 'red';
-    } else {
-      button.style.color = '#af02ff';
-    }
-    button.style.backgroundColor = '#f0f0f0';
-    button.style.fontWeight = 'bold'
-
+    button.style.backgroundColor = "#f0f0f0";
+    button.style.fontWeight = "bold";
     lastClickedButton = button;
     lastItem = item;
 
+    // Get character index from Tree-Sitter node position
     range.start = getCharacterIndexFromPosition(item.startPosition);
     range.end = getCharacterIndexFromPosition(item.endPosition);
+
+    // Apply highlight to CodeMirror
+    updateHighlight(range.start, range.end);
   }
+
+  function updateHighlight(start: number, end: number) {
+    editorView.dispatch({
+      effects: [
+        highlightEffect.of({ start, end }) // This replaces previous highlights
+      ]
+    });
+  }
+
+
 
   function getCharacterIndexFromPosition(position: Point) {
     const { row, column } = position;
@@ -314,6 +403,24 @@
   
 </script>
 
+<!--
+<style>
+  .editor-container {
+      height: 300px;
+      border: 1px solid #ccc;
+      display: flex;
+      align-items: flex-start;  /* Ensures alignment to the top */
+      justify-content: flex-start; /* Aligns text to the left */
+    }
+
+    .container {
+      display: flex;
+      justify-content: space-between; /* Instead of center */
+      align-items: flex-start;
+    }  
+</style>
+-->
+
 <main>
   <div class="language-selector">
     <label for="language-dropdown">Language:</label>
@@ -330,18 +437,12 @@
   <div class="container">
     <div class="column">
       <div class="header-container">
-      <h2>Input Code</h2>
+        <h2>Input Code</h2>
       </div>
-      <div class="div-textarea"
-        contenteditable="plaintext-only"
-        bind:this={div}
-        bind:innerHTML={html}
-        bind:textContent={code}
-        >
-      </div>
-      <!-- <textarea bind:value={code} on:keydown={handleKeyPress}></textarea> -->
+      <!-- New CodeMirror container -->
+      <div class="editor-container" bind:this={editorContainer}></div>
     </div>
-
+    
     <div class="column">
       <div class="header-container">
         <h2>Parsed Syntax Tree</h2>
