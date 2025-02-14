@@ -103,6 +103,10 @@ let parser: Parser;
   let editorContainer: HTMLDivElement;
   let editorView: EditorView;
 
+  let queryEditorContainer: HTMLDivElement;
+  let queryEditor: EditorView;
+  
+
   async function loadParser() {
     const { default: Parser } = await import('web-tree-sitter');
     await Parser.init();
@@ -144,68 +148,108 @@ let parser: Parser;
   let queryTimeout: NodeJS.Timeout;
 
   function executeQuery() {
-    if (!currentLanguage || !rootNode) {
-      console.error("Language or parse tree not available");
-      return;
-    }
-
-    // Clear any pending query execution to prevent rapid re-runs
-    clearTimeout(queryTimeout);
-
-    queryTimeout = setTimeout(() => {
-      try {
-        const treeQuery = currentLanguage.query(query);
-        const matches = treeQuery.matches(rootNode);
-
-        queryHighlightRanges = [];
-        let colorIndex = 0;
-        const assignedColors = new Map();
-
-        for (const match of matches) {
-          for (const capture of match.captures) {
-            const start = getCharacterIndexFromPosition(capture.node.startPosition);
-            const end = getCharacterIndexFromPosition(capture.node.endPosition);
-
-            if (!assignedColors.has(capture.name)) {
-              assignedColors.set(capture.name, predefinedColors[colorIndex % predefinedColors.length]);
-              colorIndex++;
-            }
-
-            const color = assignedColors.get(capture.name);
-            queryHighlightRanges.push({ start, end, color });
-          }
-        }
-
-        updateQueryHighlighting();
-      } catch (e) {
-        console.error("Query error:", e);
+      if (!currentLanguage || !rootNode) {
+          console.error("Language or parse tree not available");
+          return;
       }
-    }, 200); // Adjust the delay as needed (200ms is usually good)
+
+      clearTimeout(queryTimeout);
+      queryTimeout = setTimeout(() => {
+          try {
+              const treeQuery = currentLanguage.query(query);
+              const matches = treeQuery.matches(rootNode);
+
+              queryHighlightRanges = [];
+              let colorIndex = 0;
+              const assignedColors = new Map();
+
+              for (const match of matches) {
+                  for (const capture of match.captures) {
+                      const start = getCharacterIndexFromPosition(capture.node.startPosition);
+                      const end = getCharacterIndexFromPosition(capture.node.endPosition);
+
+                      if (!assignedColors.has(capture.name)) {
+                          assignedColors.set(capture.name, predefinedColors[colorIndex % predefinedColors.length]);
+                          colorIndex++;
+                      }
+
+                      const color = assignedColors.get(capture.name);
+                      queryHighlightRanges.push({ start, end, color });
+                  }
+              }
+
+              updateQueryHighlighting();
+              updateQueryEditor(); // Update highlighting in the query editor as well
+          } catch (e) {
+              console.error("Query error:", e);
+          }
+      }, 200);
   }
 
+
   function updateCaptureColors(query: string) {
-    captureColors.clear(); // Reset previous color assignments
+      captureColors.clear(); // Reset previous color assignments
 
-    const seenCaptures = new Set<string>();
-    let match;
+      const seenCaptures = new Set<string>();
+      let match;
+      let colorIndex = 0;  // Track order of first appearance
 
-    while ((match = captureRegex.exec(query)) !== null) {
-      const captureName = match[1];
+      while ((match = captureRegex.exec(query)) !== null) {
+          const captureName = match[1];
 
-      if (!seenCaptures.has(captureName)) {
-        seenCaptures.add(captureName);
+          if (!seenCaptures.has(captureName)) {
+              seenCaptures.add(captureName);
 
-        if (!captureColors.has(captureName)) {
-          captureColors.set(
-            captureName,
-            predefinedColors[captureColors.size % predefinedColors.length]
-          );
-        }
+              if (!captureColors.has(captureName)) {
+                  captureColors.set(
+                      captureName,
+                      predefinedColors[colorIndex % predefinedColors.length]
+                  );
+                  colorIndex++;
+              }
+          }
       }
-    }
+
+      // Update query box highlights
+      updateQueryEditor();
+  }
+  function updateQueryEditor() {
+      let effects = [];
+      let seenPositions = new Set<number>(); // Track positions to avoid duplicate highlights
+
+      [...query.matchAll(captureRegex)].forEach(match => {
+          let captureName = match[1];
+          let color = captureColors.get(captureName) || "black";
+
+          // Find the correct `start` position by ensuring it hasn't been used before
+          let start = query.indexOf(match[0]);
+          while (seenPositions.has(start)) {
+              start = query.indexOf(match[0], start + 1); // Find next occurrence
+          }
+          seenPositions.add(start);
+
+          let end = start + match[0].length;
+
+          if (start >= 0 && start < end) { // Ensure valid range
+              effects.push(highlightEffect.of([{ start, end, color }]));
+          } else {
+              console.warn(`Skipping invalid query range: start(${start}) > end(${end})`);
+          }
+      });
+
+      // **Sort by `start` before applying to avoid CodeMirror errors**
+      effects.sort((a, b) => a.start - b.start);
+
+      // Apply sorted highlights to the query editor
+      queryEditor.dispatch({
+          effects: effects
+      });
   }
 
   function updateQueryHighlighting() {
+    
+    queryHighlightRanges.sort((a, b) => a.start - b.start);
+
     let effects = [
       ...queryHighlightRanges.map(({ start, end, color }) => ({
         start, end, color
@@ -251,9 +295,24 @@ let parser: Parser;
     });
 
     editorView.focus(); // Ensure it accepts input
-    queryEditor.on("changes", (update) => {
-      updateCaptureColors(queryEditor.getValue());
-      updateQueryEditor();
+
+    queryEditor = new EditorView({
+        state: EditorState.create({
+            doc: query, // Initial query text
+            extensions: [
+                keymap.of([...defaultKeymap, ...historyKeymap]),
+                lineNumbers(),
+                highlightField, // Enable query highlighting
+                EditorView.updateListener.of(update => {
+                    if (update.docChanged) {
+                        query = update.state.doc.toString();
+                        updateCaptureColors(query);
+                        executeQuery(); // Update highlights in both editors
+                    }
+                })
+            ]
+        }),
+        parent: queryEditorContainer // Mount the query editor
     });
   });
 
@@ -585,13 +644,8 @@ let parser: Parser;
       <!-- Query Box Section -->
       <div class="query-box" style="margin-top: 20px;">
         <h2>Query</h2>
-        <textarea 
-          bind:value={query} 
-          on:input={executeQuery} 
-          placeholder="Enter your query here" 
-          style="width: 100%; height: 80px;"
-          ></textarea>
-            </div>
+        <div class="editor-container" bind:this={queryEditorContainer}></div>
+      </div>
     </div>
   </div>
 </main>
