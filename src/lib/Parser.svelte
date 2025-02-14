@@ -140,43 +140,46 @@ let parser: Parser;
   let captureColors = new Map<string, string>();
   const predefinedColors = ["red", "blue", "green", "orange", "purple", "brown", "pink"];
 
+  let queryTimeout: NodeJS.Timeout;
+
   function executeQuery() {
     if (!currentLanguage || !rootNode) {
       console.error("Language or parse tree not available");
       return;
     }
 
-    try {
-      const treeQuery = currentLanguage.query(query);
-      const matches = treeQuery.matches(rootNode);
+    // Clear any pending query execution to prevent rapid re-runs
+    clearTimeout(queryTimeout);
 
-      // Clear old highlights
-      queryHighlightRanges = [];
+    queryTimeout = setTimeout(() => {
+      try {
+        const treeQuery = currentLanguage.query(query);
+        const matches = treeQuery.matches(rootNode);
 
-      let colorIndex = 0;
-      const assignedColors = new Map();
+        queryHighlightRanges = [];
+        let colorIndex = 0;
+        const assignedColors = new Map();
 
-      for (const match of matches) {
-        for (const capture of match.captures) {
-          const start = getCharacterIndexFromPosition(capture.node.startPosition);
-          const end = getCharacterIndexFromPosition(capture.node.endPosition);
+        for (const match of matches) {
+          for (const capture of match.captures) {
+            const start = getCharacterIndexFromPosition(capture.node.startPosition);
+            const end = getCharacterIndexFromPosition(capture.node.endPosition);
 
-          // Assign a color based on query capture name
-          if (!assignedColors.has(capture.name)) {
-            assignedColors.set(capture.name, predefinedColors[colorIndex % predefinedColors.length]);
-            colorIndex++;
+            if (!assignedColors.has(capture.name)) {
+              assignedColors.set(capture.name, predefinedColors[colorIndex % predefinedColors.length]);
+              colorIndex++;
+            }
+
+            const color = assignedColors.get(capture.name);
+            queryHighlightRanges.push({ start, end, color });
           }
-
-          const color = assignedColors.get(capture.name);
-          queryHighlightRanges.push({ start, end, color });
         }
-      }
 
-      // Apply highlights
-      updateQueryHighlighting();
-    } catch (e) {
-      console.error("Query error:", e);
-    }
+        updateQueryHighlighting();
+      } catch (e) {
+        console.error("Query error:", e);
+      }
+    }, 200); // Adjust the delay as needed (200ms is usually good)
   }
 
   function updateCaptureColors(query: string) {
@@ -561,9 +564,13 @@ let parser: Parser;
       <!-- Query Box Section -->
       <div class="query-box" style="margin-top: 20px;">
         <h2>Query</h2>
-        <textarea bind:value={query} placeholder="Enter your query here" style="width: 100%; height: 80px;"></textarea>
-        <button on:click={executeQuery} style="margin-top: 10px;">Run Query</button>
-      </div>
+        <textarea 
+          bind:value={query} 
+          on:input={executeQuery} 
+          placeholder="Enter your query here" 
+          style="width: 100%; height: 80px;"
+          ></textarea>
+            </div>
     </div>
   </div>
 </main>
