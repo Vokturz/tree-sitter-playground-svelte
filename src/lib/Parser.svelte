@@ -85,6 +85,7 @@ let parser: Parser;
     { value: 'c_sharp', label: 'C#' },
     { value: 'java', label: 'Java' },
     { value: 'sql', label: 'SQL' },
+    { value: 'dart', label: 'Dart' },
   ];
 
   let selectedLanguage = languages[1].value;
