@@ -54,10 +54,16 @@ h1 {
   height: 100%;
 }
 
-.highlighted-text {
-  background-color: yellow !important;
-  color: black;
-  padding: 2px;
+
+.highlighted-text-red { color: red; }
+.highlighted-text-blue { color: blue; }
+.highlighted-text-green { color: green; }
+.highlighted-text-orange { color: orange; }
+.highlighted-text-purple { color: purple; }
+.highlighted-text-brown { color: brown; }
+.highlighted-text-pink { color: pink; }
+.clicked-node-highlight {
+  background-color: rgba(173, 216, 230, 0.5) !important; /* Light blue */
   border-radius: 3px;
 }
 

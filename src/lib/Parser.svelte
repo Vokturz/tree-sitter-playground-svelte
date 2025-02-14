@@ -21,30 +21,46 @@
   // Define a state effect to apply highlighting
 
 
-  const highlightEffect = StateEffect.define<{ start: number; end: number }>();
-
   // State field that tracks highlighted ranges
+  const highlightEffect = StateEffect.define<{ start: number; end: number; color?: string }[]>();
+
   const highlightField = StateField.define({
     create() {
       return Decoration.none;
     },
-    update(_, tr) {
+    update(highlights, tr) {
       let builder = new RangeSetBuilder();
+      let newNodeHighlight = null;
+      let queryHighlights: any[] = [];
 
-      // Process only the latest highlight from effects
       for (let effect of tr.effects) {
         if (effect.is(highlightEffect)) {
-          builder.add(effect.value.start, effect.value.end, 
-            Decoration.mark({ class: "highlighted-text" })
-          );
+          for (const { start, end, color } of effect.value) {
+            if (color) {
+              // Store query highlights separately
+              queryHighlights.push({ start, end, deco: Decoration.mark({ class: `highlighted-text-${color}` }) });
+            } else {
+              // Only keep the latest node highlight
+              newNodeHighlight = { start, end, deco: Decoration.mark({ class: "clicked-node-highlight" }) };
+            }
+          }
         }
+      }
+
+      // **Ensure only ONE node highlight exists at a time**
+      if (newNodeHighlight) {
+        builder.add(newNodeHighlight.start, newNodeHighlight.end, newNodeHighlight.deco);
+      }
+
+      // **Keep query highlights persistent**
+      for (let { start, end, deco } of queryHighlights) {
+        builder.add(start, end, deco);
       }
 
       return builder.finish();
     },
     provide: (f) => EditorView.decorations.from(f),
   });
-
 
 let parser: Parser;
   let code = `function example(name) {
@@ -120,38 +136,86 @@ let parser: Parser;
 
   // NEW: Function to handle executing the query
   let queryResults: any[] = [];
+  const captureRegex = /@\s*([\w\._-]+)/g;
+  let captureColors = new Map<string, string>();
+  const predefinedColors = ["red", "blue", "green", "orange", "purple", "brown", "pink"];
 
   function executeQuery() {
-    if (!currentLanguage) {
-      console.error("Language not loaded yet");
+    if (!currentLanguage || !rootNode) {
+      console.error("Language or parse tree not available");
       return;
     }
-    if (!rootNode) {
-      console.error("No parse tree available");
-      return;
-    }
+
     try {
       const treeQuery = currentLanguage.query(query);
       const matches = treeQuery.matches(rootNode);
-      // (Optional) store matches for display:
-      queryResults = matches;
 
-      // Reset previous highlight ranges
+      // Clear old highlights
       queryHighlightRanges = [];
 
-      // For each match, iterate over captures and compute ranges.
-      // You can adjust this if you only want specific captures.
+      let colorIndex = 0;
+      const assignedColors = new Map();
+
       for (const match of matches) {
         for (const capture of match.captures) {
           const start = getCharacterIndexFromPosition(capture.node.startPosition);
           const end = getCharacterIndexFromPosition(capture.node.endPosition);
-          queryHighlightRanges.push({ start, end });
+
+          // Assign a color based on query capture name
+          if (!assignedColors.has(capture.name)) {
+            assignedColors.set(capture.name, predefinedColors[colorIndex % predefinedColors.length]);
+            colorIndex++;
+          }
+
+          const color = assignedColors.get(capture.name);
+          queryHighlightRanges.push({ start, end, color });
         }
       }
-      console.log("Query matches:", matches);
+
+      // Apply highlights
+      updateQueryHighlighting();
     } catch (e) {
       console.error("Query error:", e);
     }
+  }
+
+  function updateCaptureColors(query: string) {
+    captureColors.clear(); // Reset previous color assignments
+
+    const seenCaptures = new Set<string>();
+    let match;
+
+    while ((match = captureRegex.exec(query)) !== null) {
+      const captureName = match[1];
+
+      if (!seenCaptures.has(captureName)) {
+        seenCaptures.add(captureName);
+
+        if (!captureColors.has(captureName)) {
+          captureColors.set(
+            captureName,
+            predefinedColors[captureColors.size % predefinedColors.length]
+          );
+        }
+      }
+    }
+  }
+
+  function updateQueryHighlighting() {
+    let effects = [
+      ...queryHighlightRanges.map(({ start, end, color }) => ({
+        start, end, color
+      }))
+    ];
+
+    editorView.dispatch({
+      effects: [
+        highlightEffect.of([
+          ...effects,
+          ...[{ start: range.start, end: range.end }] // Preserve the currently clicked node highlight
+        ])
+      ]
+    });
   }
 
   onMount(async () => {
@@ -183,7 +247,10 @@ let parser: Parser;
     });
 
     editorView.focus(); // Ensure it accepts input
-
+    queryEditor.on("changes", (update) => {
+      updateCaptureColors(queryEditor.getValue());
+      updateQueryEditor();
+    });
   });
 
   onDestroy(() => {
@@ -318,9 +385,20 @@ let parser: Parser;
     range.start = getCharacterIndexFromPosition(item.startPosition);
     range.end = getCharacterIndexFromPosition(item.endPosition);
 
-    // Apply highlight to CodeMirror
-    updateHighlight(range.start, range.end);
+    // Ensure only ONE node is highlighted at a time
+    updateClickedNodeHighlight(range.start, range.end);
   }
+
+  function updateClickedNodeHighlight(start: number, end: number) {
+  editorView.dispatch({
+    effects: [
+      highlightEffect.of([
+        ...queryHighlightRanges.map(({ start, end, color }) => ({ start, end, color })), // Keep existing query highlights
+        { start, end } // Apply new node highlight (removes old node highlight)
+      ])
+    ]
+  });
+}
 
   function updateHighlight(start: number, end: number) {
     editorView.dispatch({
@@ -329,6 +407,21 @@ let parser: Parser;
       ]
     });
   }
+
+  function updateHighlighting() {
+    editorView.dispatch({
+      effects: [
+        highlightEffect.of(
+          queryHighlightRanges.map(({ start, end, color }) => ({
+            start,
+            end,
+            color,
+          }))
+        ),
+      ],
+    });
+  }
+
 
 
 
