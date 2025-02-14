@@ -36,6 +36,11 @@
   let hideNoNamed = true
   let hideErrors = false
   let errorMessage = '';
+  let currentLanguage: any;
+
+  // NEW: query variable to hold the query text
+  let query = '';
+  let queryHighlightRanges: Array<{ start: number; end: number }> = [];
 
   async function loadParser() {
     const { default: Parser } = await import('web-tree-sitter');
@@ -48,6 +53,7 @@
     try {
       const Language = await Parser.Language.load(`/tree-sitter-${language}.wasm`);
       parser.setLanguage(Language);
+      currentLanguage = Language;
       errorMessage = '';
       await parseCode(code);
     } catch (error: any) {
@@ -68,6 +74,42 @@
     }
   }
 
+  // NEW: Function to handle executing the query
+  let queryResults: any[] = [];
+
+  function executeQuery() {
+    if (!currentLanguage) {
+      console.error("Language not loaded yet");
+      return;
+    }
+    if (!rootNode) {
+      console.error("No parse tree available");
+      return;
+    }
+    try {
+      const treeQuery = currentLanguage.query(query);
+      const matches = treeQuery.matches(rootNode);
+      // (Optional) store matches for display:
+      queryResults = matches;
+
+      // Reset previous highlight ranges
+      queryHighlightRanges = [];
+
+      // For each match, iterate over captures and compute ranges.
+      // You can adjust this if you only want specific captures.
+      for (const match of matches) {
+        for (const capture of match.captures) {
+          const start = getCharacterIndexFromPosition(capture.node.startPosition);
+          const end = getCharacterIndexFromPosition(capture.node.endPosition);
+          queryHighlightRanges.push({ start, end });
+        }
+      }
+      console.log("Query matches:", matches);
+    } catch (e) {
+      console.error("Query error:", e);
+    }
+  }
+
   onMount(async () => {
     await loadParser();
     await loadLanguage(selectedLanguage);
@@ -81,6 +123,48 @@
   $: if (code && parser) {
     parseCode(code);
   }
+
+  $: (async () => {
+    if (code !== prevCode) {
+      prevCode = code;
+      // Clear any previous highlights when code changes
+      queryHighlightRanges = [];
+      handleContentChange();
+    }
+    let sel = rangy.getSelection();
+    let savedSel = sel.saveCharacterRanges(div);
+
+    // If there are query highlights, render them
+    if (queryHighlightRanges.length > 0) {
+      // Sort ranges by their starting index
+      const sortedRanges = queryHighlightRanges.slice().sort((a, b) => a.start - b.start);
+      let highlightedHtml = "";
+      let lastIndex = 0;
+      // Loop through each range and wrap the matching text
+      for (const range of sortedRanges) {
+        highlightedHtml += escapeHtml(code.substring(lastIndex, range.start));
+        const toHighlight = escapeHtml(code.substring(range.start, range.end));
+        highlightedHtml += `<span style="background-color: yellow;">${toHighlight}</span>`;
+        lastIndex = range.end;
+      }
+      highlightedHtml += escapeHtml(code.substring(lastIndex));
+      html = highlightedHtml;
+    } else if (range.start !== 0 || range.end !== 0) {
+      // fallback: if a single range is set (from button click), use it
+      let toHighlight = escapeHtml(code.substring(range.start, range.end));
+      if (lastItem?.name === 'ERROR') {
+        toHighlight = `<a href=# style="color: red;">${toHighlight}</a>`;
+      } else {
+        toHighlight = `<a href=#>${toHighlight}</a>`;
+      }
+      html = escapeHtml(code.substring(0, range.start)) + toHighlight + escapeHtml(code.substring(range.end));
+    } else {
+      // No highlights, just show the plain code
+      html = escapeHtml(code);
+    }
+    await tick();
+    sel.restoreCharacterRanges(div, savedSel);
+  })();
 
   // function handleKeyPress(event: any) {
   //   const textarea = event.target;
@@ -232,18 +316,16 @@
 
 <main>
   <div class="language-selector">
-    <span>Language:</span>
-    {#each languages as language, i}
-      <button
-        class:active={selectedLanguage === language.value}
-        on:click={() => selectLanguage(language.value)}
-      >
-        {language.label}
-      </button>
-      {#if i < languages.length - 1}
-        <span class="separator"> | </span>
-      {/if}
-    {/each}
+    <label for="language-dropdown">Language:</label>
+    <select
+      id="language-dropdown"
+      bind:value={selectedLanguage}
+      on:change={(e) => selectLanguage(e.target.value)}
+    >
+      {#each languages as language}
+        <option value={language.value}>{language.label}</option>
+      {/each}
+    </select>
   </div>
   <div class="container">
     <div class="column">
@@ -281,7 +363,13 @@
               >{#if item.name === 'ERROR'}<span class="error">{item.name}</span>{:else}{item.name}{/if}</button>{item.suffix}</div>
           {/each}
         </pre>
-      {/if}
+      {/if}      
+      <!-- Query Box Section -->
+      <div class="query-box" style="margin-top: 20px;">
+        <h2>Query</h2>
+        <textarea bind:value={query} placeholder="Enter your query here" style="width: 100%; height: 80px;"></textarea>
+        <button on:click={executeQuery} style="margin-top: 10px;">Run Query</button>
+      </div>
     </div>
   </div>
 </main>
