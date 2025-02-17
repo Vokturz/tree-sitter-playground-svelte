@@ -102,6 +102,7 @@ h1 {
   flex-direction: column;
   width: 150vh;
   min-width: 0;
+  overflow-y: auto
 }
 
 textarea:focus {

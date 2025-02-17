@@ -12,54 +12,48 @@
   import { EditorState } from '@codemirror/state';
   import { javascript } from '@codemirror/lang-javascript';
   import { EditorView, lineNumbers } from '@codemirror/view';
-  import { history, defaultKeymap, historyKeymap } from '@codemirror/commands';
+  import { history, defaultKeymap, historyKeymap, indentWithTab} from '@codemirror/commands';
   import { keymap } from '@codemirror/view';
 
   import { StateEffect, StateField, RangeSetBuilder } from "@codemirror/state";
   import { Decoration, ViewPlugin, WidgetType } from "@codemirror/view";
-
-  // Define a state effect to apply highlighting
 
 
   // State field that tracks highlighted ranges
   const highlightEffect = StateEffect.define<{ start: number; end: number; color?: string }[]>();
 
   const highlightField = StateField.define({
-    create() {
-      return Decoration.none;
-    },
-    update(highlights, tr) {
-      let builder = new RangeSetBuilder();
-      let newNodeHighlight = null;
-      let queryHighlights: any[] = [];
+      create() {
+          return Decoration.none;
+      },
+      update(highlights, tr) {
+          let builder = new RangeSetBuilder();
+          let queryHighlights = [];
 
-      for (let effect of tr.effects) {
-        if (effect.is(highlightEffect)) {
-          for (const { start, end, color } of effect.value) {
-            if (color) {
-              // Store query highlights separately
-              queryHighlights.push({ start, end, deco: Decoration.mark({ class: `highlighted-text-${color}` }) });
-            } else {
-              // Only keep the latest node highlight
-              newNodeHighlight = { start, end, deco: Decoration.mark({ class: "clicked-node-highlight" }) };
-            }
+          for (let effect of tr.effects) {
+              if (effect.is(highlightEffect)) {
+                  for (const { start, end, color } of effect.value) {
+                      queryHighlights.push({ start, end, deco: Decoration.mark({ class: `highlighted-text-${color}` }) });
+                  }
+              }
           }
-        }
-      }
 
-      // **Ensure only ONE node highlight exists at a time**
-      if (newNodeHighlight) {
-        builder.add(newNodeHighlight.start, newNodeHighlight.end, newNodeHighlight.deco);
-      }
+          // **Ensure query highlights persist across updates**
+          if (!tr.docChanged) {
+              highlights.between(0, tr.state.doc.length, (from, to, decoration) => {
+                  queryHighlights.push({ start: from, end: to, deco: decoration });
+              });
+          }
 
-      // **Keep query highlights persistent**
-      for (let { start, end, deco } of queryHighlights) {
-        builder.add(start, end, deco);
-      }
+          // **Sort and apply the highlights**
+          queryHighlights.sort((a, b) => a.start - b.start);
+          for (let { start, end, deco } of queryHighlights) {
+              builder.add(start, end, deco);
+          }
 
-      return builder.finish();
-    },
-    provide: (f) => EditorView.decorations.from(f),
+          return builder.finish();
+      },
+      provide: f => EditorView.decorations.from(f),
   });
 
 let parser: Parser;
@@ -160,26 +154,22 @@ let parser: Parser;
               const matches = treeQuery.matches(rootNode);
 
               queryHighlightRanges = [];
-              let colorIndex = 0;
-              const assignedColors = new Map();
 
               for (const match of matches) {
                   for (const capture of match.captures) {
                       const start = getCharacterIndexFromPosition(capture.node.startPosition);
                       const end = getCharacterIndexFromPosition(capture.node.endPosition);
 
-                      if (!assignedColors.has(capture.name)) {
-                          assignedColors.set(capture.name, predefinedColors[colorIndex % predefinedColors.length]);
-                          colorIndex++;
-                      }
-
-                      const color = assignedColors.get(capture.name);
+                      // Use the color assigned in updateCaptureColors()
+                      const color = captureColors.get(capture.name) || "default-highlight";
                       queryHighlightRanges.push({ start, end, color });
                   }
               }
 
+              console.log("Query Highlight Ranges (from executeQuery):", queryHighlightRanges);
+
               updateQueryHighlighting();
-              updateQueryEditor(); // Update highlighting in the query editor as well
+              updateQueryEditor();
           } catch (e) {
               console.error("Query error:", e);
           }
@@ -187,12 +177,13 @@ let parser: Parser;
   }
 
 
+
   function updateCaptureColors(query: string) {
       captureColors.clear(); // Reset previous color assignments
 
       const seenCaptures = new Set<string>();
       let match;
-      let colorIndex = 0;  // Track order of first appearance
+      let colorIndex = 0; // Track order of first appearance
 
       while ((match = captureRegex.exec(query)) !== null) {
           const captureName = match[1];
@@ -200,56 +191,59 @@ let parser: Parser;
           if (!seenCaptures.has(captureName)) {
               seenCaptures.add(captureName);
 
-              if (!captureColors.has(captureName)) {
-                  captureColors.set(
-                      captureName,
-                      predefinedColors[colorIndex % predefinedColors.length]
-                  );
-                  colorIndex++;
-              }
+              // Assign colors based on query appearance order
+              captureColors.set(captureName, predefinedColors[colorIndex % predefinedColors.length]);
+              colorIndex++;
           }
       }
 
+      console.log("Capture Colors (from updateCaptureColors):", captureColors);
+      
       // Update query box highlights
       updateQueryEditor();
   }
+
+
+
   function updateQueryEditor() {
       let effects = [];
-      let seenPositions = new Set<number>(); // Track positions to avoid duplicate highlights
+      let seenPositions = new Set<number>();
 
       [...query.matchAll(captureRegex)].forEach(match => {
           let captureName = match[1];
-          let color = captureColors.get(captureName) || "black";
 
-          // Find the correct `start` position by ensuring it hasn't been used before
+          // Use the same color from updateCaptureColors()
+          let color = captureColors.get(captureName) || "default-highlight";
+
           let start = query.indexOf(match[0]);
           while (seenPositions.has(start)) {
-              start = query.indexOf(match[0], start + 1); // Find next occurrence
+              start = query.indexOf(match[0], start + 1);
           }
           seenPositions.add(start);
 
           let end = start + match[0].length;
 
-          if (start >= 0 && start < end) { // Ensure valid range
+          if (start >= 0 && start < end) {
               effects.push(highlightEffect.of([{ start, end, color }]));
           } else {
               console.warn(`Skipping invalid query range: start(${start}) > end(${end})`);
           }
       });
 
-      // **Sort by `start` before applying to avoid CodeMirror errors**
       effects.sort((a, b) => a.start - b.start);
 
-      // Apply sorted highlights to the query editor
+      console.log("Query Editor Highlights (from updateQueryEditor):", effects);
+
       queryEditor.dispatch({
           effects: effects
       });
   }
 
+
   function updateQueryHighlighting() {
     
     queryHighlightRanges.sort((a, b) => a.start - b.start);
-
+    
     let effects = [
       ...queryHighlightRanges.map(({ start, end, color }) => ({
         start, end, color
@@ -275,7 +269,7 @@ let parser: Parser;
     const state = EditorState.create({
       doc: code,
       extensions: [
-        keymap.of([...defaultKeymap, ...historyKeymap]), // Basic keybindings
+        keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]), // Basic keybindings
         history(), // Undo/redo support
         javascript(), // Language support
         highlightField,  // Add highlight tracking
@@ -300,7 +294,7 @@ let parser: Parser;
         state: EditorState.create({
             doc: query, // Initial query text
             extensions: [
-                keymap.of([...defaultKeymap, ...historyKeymap]),
+                keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
                 lineNumbers(),
                 highlightField, // Enable query highlighting
                 EditorView.updateListener.of(update => {
@@ -646,6 +640,6 @@ let parser: Parser;
         <h2>Query</h2>
         <div class="editor-container" bind:this={queryEditorContainer}></div>
       </div>
-    </div>
+    </div>    
   </div>
 </main>
