@@ -195,7 +195,7 @@
       } catch (e) {
         console.error("Query error:", e);
       }
-    }, 200);
+    }, 1000);
   }
 
   function updateCaptureColors(query: string) {
@@ -489,6 +489,10 @@
           {/each}
         </pre>
       {/if}
+    </div>
+  </div>
+  <div class="container">
+    <div class="column">
       <!-- Query Box Section -->
       <div class="query-box" style="margin-top: 20px;">
         <h2>Query</h2>
